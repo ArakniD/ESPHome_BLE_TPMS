@@ -1,0 +1,42 @@
+substitutions:
+  name_prefix: "TPMS"
+  id_slug: "tpms"
+  mac: "00:00:00:00:00:00"
+
+sensor:
+  - platform: template
+    name: "${name_prefix} Temperature"
+    id: ble_${id_slug}_temp
+    unit_of_measurement: "°C"
+    icon: "mdi:thermometer"
+    device_class: "temperature"
+    state_class: "measurement"
+  - platform: template
+    name: "${name_prefix} Pressure"
+    id: ble_${id_slug}_press
+    unit_of_measurement: "bar"
+    icon: "mdi:gauge"
+    device_class: "pressure"
+    state_class: "measurement"
+  - platform: template
+    name: "${name_prefix} Voltage"
+    id: ble_${id_slug}_batt
+    unit_of_measurement: "V"
+    icon: "mdi:battery"
+    device_class: "voltage"
+    state_class: "measurement"
+
+esp32_ble_tracker:
+  on_ble_advertise:
+    - mac_address: ${mac}
+      then:
+        - lambda: |-
+            for (auto data : x.get_manufacturer_datas()) {
+              const char *hexstring = data.uuid.to_string().substr(2,2).c_str();
+              const float voltage = (float) strtol(hexstring, NULL, 16) * 0.1;
+              const int pressure = data.data[1] << 8 | data.data[2];
+
+              id(ble_${id_slug}_temp).publish_state(data.data[0]);
+              id(ble_${id_slug}_press).publish_state((float) pressure * 0.001);
+              id(ble_${id_slug}_batt).publish_state(voltage);
+            }
